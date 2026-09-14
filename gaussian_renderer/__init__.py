@@ -16,7 +16,7 @@ from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
 def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, \
-           override_color = None, is_train=False, iteration=None):
+           override_color = None, get_flag=None, metric_map = None):
     """
     Render the scene. 
     
@@ -82,19 +82,6 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
             shs = pc.get_features
     else:
         colors_precomp = override_color
-
-    # DropGaussian
-    if is_train:
-        # Create initial compensation factor (1 for each Gaussian)
-        compensation = torch.ones(opacity.shape[0], dtype=torch.float32, device="cuda")
-
-        # Apply DropGaussian with compensation
-        drop_rate = 0.2 * (iteration/10000)
-        d = torch.nn.Dropout(p=drop_rate)
-        compensation = d(compensation)
-
-        # Apply to opacity
-        opacity = opacity * compensation[:, None]
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
     rendered_image, radii = rasterizer(

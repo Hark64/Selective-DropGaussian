@@ -32,6 +32,10 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
+# todo: is fast_utils needed?
+from utils.fast_utils import compute_gaussian_score_fastgs, sampling_cameras
+from utils.drop_utils import drop_gaussians, selective_drop_gaussians
+
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
@@ -50,6 +54,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     test_imgs_dir = os.path.join(args.model_path, "test_imgs/")
     os.makedirs(test_imgs_dir, exist_ok = True)
+
+    #FastGS: record time
+    optim_start = torch.cuda.Event(enable_timing=True)
+    optim_end = torch.cuda.Event(enable_timing=True)
+    total_time = 0.0
 
     viewpoint_stack = None
     ema_loss_for_log = 0.0
@@ -78,7 +87,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             pipe.debug = True
 
         bg = torch.rand((3), device="cuda") if opt.random_background else background
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, iteration=iteration)
+
+        # Select Gaussians to Drop
+        temp_gaussians = gaussians
+        # todo: function call here
+        drop_rate = calc_drop_rate(iteration, max_iteration, 0.2)
+        temp_gaussians.opacity = drop_gaussians(gaussians.get_opacity, drop_rate)
+        render_pkg = render(viewpoint_cam, temp_gaussians, pipe, bg)
+
+
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         Ll1 = l1_loss(image, gt_image)
@@ -123,9 +140,20 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
+            # FastGS: record time
+            optim_end.record()
+            torch.cuda.synchronize()
+            optim_time = optim_start.elapsed_time(optim_end)
+            total_time += (iter_time + optim_time) / 1e3
+
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+
+        
+    #FastGS: scene.save(iteration)
+    print(f"Gaussian number: {gaussians._xyz.shape[0]}")
+    print(f"Training time: {total_time}")
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
