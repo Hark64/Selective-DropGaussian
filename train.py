@@ -32,11 +32,11 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
 
-# todo: is fast_utils needed?
 from utils.fast_utils import compute_gaussian_score_fastgs, sampling_cameras
-from utils.drop_utils import drop_gaussians, selective_drop_gaussians
+from utils.drop_utils import calc_drop_rate, drop_gaussians, selective_drop_gaussians
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from \
+            stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -89,12 +89,25 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
         # Select Gaussians to Drop
-        temp_gaussians = gaussians
-        # todo: function call here
+        scores = None
         drop_rate = calc_drop_rate(iteration, max_iteration, 0.2)
-        temp_gaussians.opacity = drop_gaussians(gaussians.get_opacity, drop_rate)
-        render_pkg = render(viewpoint_cam, temp_gaussians, pipe, bg)
 
+        # use DropGaussian's random selection for first stop_rand_drop_iter iterations if provided
+        if (stop_rand_drop_iter is not None) and (iteration <= stop_rand_drop_iter):
+            scores = None
+        else:
+            match fastgs_importance_score:
+                my_viewpoint_stack = scene.getTrainCameras().copy()
+                camlist = sampling_cameras(my_viewpoint_stack)
+                case 'prune':
+                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, opt, mult=0.5, loss_thresh=0.1, DENSIFY=False)    
+                case 'dense':
+                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, opt, mult=0.5, loss_thresh=0.1, DENSIFY=True) 
+                # use DropGaussian random selection
+                case 'neither':
+                    scores = None
+
+        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, drop_rate=drop_rate, scores=scores, noise=noise)
 
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
@@ -236,6 +249,13 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--stop_rand_drop_iter", type=int, default=None)
+    # todo: maybe remove
+    parser.add_argument("--score_iterations", nargs="+", type=int, default=None)
+    # todo: change default to best
+    parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices["prune", "dense", "neither"]) 
+    # todo: what's nargs and action='store_true'
+    parser.add_argument('--noise', type=float, default=0)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -247,7 +267,8 @@ if __name__ == "__main__":
     # Start GUI server, configure and run training
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from \ 
+        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise)
 
     # All done
     print("\nTraining complete.")

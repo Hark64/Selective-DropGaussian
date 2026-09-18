@@ -42,7 +42,7 @@ def normalize(config_value, value_tensor):
 
     return ret_value
 
-def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, args, DENSIFY = False):
+def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thresh, DENSIFY = False):
     """Compute multi-view consistency scores for Gaussians to guide densification.
 
     For each camera in `camlist` the function renders the scene and computes a
@@ -72,16 +72,17 @@ def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, args, DENSIFY = 
 
     for view in range(len(camlist)):
         my_viewpoint_cam = camlist[view]
-        render_image = render_fastgs(my_viewpoint_cam, gaussians, pipe, bg, args.mult)["render"]
+        render_image = render_fastgs(my_viewpoint_cam, gaussians, pipe, bg, mult)["render"]
         photometric_loss = compute_photometric_loss(my_viewpoint_cam, render_image)
 
         gt_image = my_viewpoint_cam.original_image.cuda()
         get_flag = True
         l1_loss_norm = get_loss(render_image, gt_image)
         
-        metric_map = (l1_loss_norm > args.loss_thresh).int()
+        # note: threshold to flag high error pixels
+        metric_map = (l1_loss_norm > loss_thresh).int()
 
-        render_pkg = render_fastgs(my_viewpoint_cam, gaussians, pipe, bg, args.mult, get_flag = get_flag, metric_map = metric_map)
+        render_pkg = render_fastgs(my_viewpoint_cam, gaussians, pipe, bg, mult, get_flag = get_flag, metric_map = metric_map)
 
         accum_loss_counts = render_pkg["accum_metric_counts"]
 

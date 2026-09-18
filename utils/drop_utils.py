@@ -5,7 +5,6 @@ from gaussian_renderer import render
 def calc_drop_rate(iteration, max_iteration, scaling_factor):
     return scaling_factor * (iteration/max_iteration)
 
-# todo: see if this works
 # DropGaussian
 def drop_gaussians(opacity, drop_rate):
     # Create initial compensation factor (1 for each Gaussian)
@@ -20,18 +19,32 @@ def drop_gaussians(opacity, drop_rate):
     return opacity
 
 # Drop Gaussians w/ Importance Scores
-def selective_drop_gaussians(opacity, drop_rate, scores = None, noise_bool = FALSE):
+def selective_drop_gaussians(opacity, drop_rate, scores = None, noise):
+    # todo: remove prints
+    print(scores.type(), scores.shape)
+    print(opacity.type(), opacity.shape)
+    exit()
 
+    # use DropGaussian if no scores provided
     if scores is None:
         opacity = drop_gaussians(opacity, drop_rate)
     else:
-        num_to_drop = drop_rate * opacity.shape[0]
+        total_gaussians = opacity.shape[0]
+        num_to_drop = drop_rate * total_gaussians
+        compensation_factor = 1 / (1-drop_rate)
         
-        if noise_bool:
-            # todo: add rand to each
-            for i in opacity.shape[0]
+        if (noise is not None) and (noise != 0):
+            # todo: is this right?
+            scores = scores + torch.rand_like(scores) * noise
                 
         # todo: get lowest num_to_drop Gs and 0 them out
+        values, indices = torch.topk(scores, num_to_drop, Largest=False)
+        print(indices.type(), indices.shape)
+        for i in total_gaussians:
+            if i in indices:
+                opacity[i, 1] != 0:
+            else:
+                opacity[i, 1] *= compensation_factor 
 
     return opacity
 
