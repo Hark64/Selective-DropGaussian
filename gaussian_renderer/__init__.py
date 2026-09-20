@@ -17,7 +17,7 @@ from utils.sh_utils import eval_sh
 from utils.drop_utils import drop_gaussians, selective_drop_gaussians
 
 def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, \
-           override_color = None, is_train=False, drop_rate, scores=None, noise=0):
+           override_color = None, is_train=False, drop_rate, scores=None, noise_factor=0):
     """
     Render the scene. 
     
@@ -86,7 +86,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     # Selective DropGaussian
     if is_train:
-        opacity = selective_drop_gaussians(get_opacity, drop_rate, scores, noise)
+        opacity = selective_drop_gaussians(get_opacity, drop_rate, scores, noise_factor)
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
     rendered_image, radii = rasterizer(
