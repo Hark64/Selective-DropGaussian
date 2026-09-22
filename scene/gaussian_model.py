@@ -103,6 +103,14 @@ class GaussianModel:
     @property
     def get_xyz(self):
         return self._xyz
+
+    @property
+    def get_features_dc(self):
+        return self._features_dc
+
+    @property
+    def get_features_rest(self):
+        return self._features_rest 
     
     @property
     def get_features(self):

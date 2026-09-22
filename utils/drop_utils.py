@@ -1,5 +1,4 @@
 import torch
-from gaussian_renderer import render
 
 # made a func to avoid hard coding scaling factor & max iteration
 def calc_drop_rate(iteration, max_iteration, scaling_factor):
@@ -19,7 +18,7 @@ def drop_gaussians(opacity, drop_rate):
     return opacity
 
 # Drop Gaussians w/ Importance Scores
-def selective_drop_gaussians(opacity, drop_rate, scores = None, noise_factor):
+def selective_drop_gaussians(opacity, drop_rate=0.0, scores = None, noise_factor=0.0):
     # todo: remove prints
     print(scores.type(), scores.shape)
     print(opacity.type(), opacity.shape)
@@ -30,11 +29,11 @@ def selective_drop_gaussians(opacity, drop_rate, scores = None, noise_factor):
         opacity = drop_gaussians(opacity, drop_rate)
     else:
         total_gaussians = opacity.shape[0]
-        num_to_drop = drop_rate * total_gaussians
+        num_to_drop = int(drop_rate * total_gaussians)
         compensation_factor = 1 / (1-drop_rate)
         compensation = torch.ones(opacity.shape[0], dtype=torch.float32, device="cuda")
         
-        if (noise_factor is not None) and (noise_factor != 0):
+        if (noise_factor is not None) and (noise_factor != 0.0):
             # todo: is this right?
             scores = scores + torch.rand_like(scores) * noise_factor
                 

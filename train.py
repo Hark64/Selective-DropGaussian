@@ -37,8 +37,8 @@ from utils.drop_utils import calc_drop_rate, drop_gaussians, selective_drop_gaus
 import matplotlib.pyplot as plt
 
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from \
-            stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise_factor):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, \
+        stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise_factor, score_plot_path):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -106,9 +106,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             match fastgs_importance_score:
                 case 'prune':
-                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, opt, mult=0.5, loss_thresh=0.1, DENSIFY=False)    
+                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=False)    
                 case 'dense':
-                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, opt, mult=0.5, loss_thresh=0.1, DENSIFY=True) 
+                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=True) 
                 # use DropGaussian random selection
                 case 'neither':
                     scores = None
@@ -148,6 +148,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
+            # FastGS: start record
+            optim_start.record()
+
             # Densification
             if iteration < opt.densify_until_iter:
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
@@ -182,6 +185,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         plot_intervals = [x * 1000 for x in range()]
         plt.plot(plot_intervals, median_scores)
         plt.savefig(score_plot_path)
+        plt.close
 
     #FastGS: scene.save(iteration)
     print(f"Gaussian number: {gaussians._xyz.shape[0]}")
@@ -268,13 +272,15 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+
+    #Selective-DropGaussian args
     parser.add_argument("--stop_rand_drop_iter", type=int, default=None)
     # todo: maybe remove
     parser.add_argument("--score_iterations", nargs="+", type=int, default=None)
     # todo: change default to best
-    parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices["prune", "dense", "neither"]) 
+    parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices=["prune", "dense", "neither"]) 
     # todo: what's nargs and action='store_true'
-    parser.add_argument('--noise_factor', type=float, default=0)
+    parser.add_argument('--noise_factor', type=float, default=0.0)
     # todo: what is store_true
     parser.add_argument('--score_plot_path', type=str, default=None)
     args = parser.parse_args(sys.argv[1:])
@@ -288,8 +294,8 @@ if __name__ == "__main__":
     # Start GUI server, configure and run training
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from \ 
-        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise_factor)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
+        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise_factor, args.score_plot_path)
 
     # All done
     print("\nTraining complete.")

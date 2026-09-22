@@ -1,6 +1,6 @@
 import torch
 from PIL import ImageFilter
-from gaussian_renderer import render
+from gaussian_renderer import render_fastgs
 from .loss_utils import l1_loss
 from fused_ssim import fused_ssim as fast_ssim
 import torchvision.transforms as transforms
@@ -10,7 +10,7 @@ import random
 def sampling_cameras(my_viewpoint_stack):
     ''' Randomly sample a given number of cameras from the viewpoint stack'''
 
-    num_cams = 10
+    num_cams = len(my_viewpoint_stack)
     camlist = []
     for _ in range(num_cams):
         loc = random.randint(0, len(my_viewpoint_stack) - 1)

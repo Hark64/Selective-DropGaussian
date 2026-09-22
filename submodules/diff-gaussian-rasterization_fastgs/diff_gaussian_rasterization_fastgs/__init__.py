@@ -171,7 +171,7 @@ class _RasterizeGaussians(torch.autograd.Function):
 
         return grads
 
-class GaussianRasterizationSettings(NamedTuple):
+class GaussianRasterizationSettings_fastgs(NamedTuple):
     image_height: int
     image_width: int 
     tanfovx : float
@@ -188,7 +188,7 @@ class GaussianRasterizationSettings(NamedTuple):
     get_flag : bool
     metric_map : torch.Tensor
 
-class GaussianRasterizer(nn.Module):
+class GaussianRasterizer_fastgs(nn.Module):
     def __init__(self, raster_settings):
         super().__init__()
         self.raster_settings = raster_settings
