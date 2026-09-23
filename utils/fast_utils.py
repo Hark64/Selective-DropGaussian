@@ -10,7 +10,7 @@ import random
 def sampling_cameras(my_viewpoint_stack):
     ''' Randomly sample a given number of cameras from the viewpoint stack'''
 
-    num_cams = len(my_viewpoint_stack)
+    num_cams = min(10, len(my_viewpoint_stack))
     camlist = []
     for _ in range(num_cams):
         loc = random.randint(0, len(my_viewpoint_stack) - 1)
@@ -42,7 +42,7 @@ def normalize(config_value, value_tensor):
 
     return ret_value
 
-def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thresh, DENSIFY = False):
+def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thresh, DENSIFY = False, use_best_view = False):
     """Compute multi-view consistency scores for Gaussians to guide densification.
 
     For each camera in `camlist` the function renders the scene and computes a
@@ -90,17 +90,25 @@ def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thres
             if full_metric_counts is None:
                 full_metric_counts = accum_loss_counts.clone()
             else:
-                full_metric_counts += accum_loss_counts
+                if use_best_view:
+                    full_metric_counts = torch.minimum(full_metric_counts, accum_loss_counts)
+                else:
+                    full_metric_counts += accum_loss_counts
 
         if full_metric_score is None:
             full_metric_score = photometric_loss * accum_loss_counts.clone()
         else:
-            full_metric_score += photometric_loss * accum_loss_counts
+            if use_best_view:
+                full_metric_score = torch.minimum(full_metric_score, photometric_loss * accum_loss_counts)
+            else:
+                full_metric_score += photometric_loss * accum_loss_counts
 
+    # min-max normalization
     pruning_score = (full_metric_score - torch.min(full_metric_score)) / (torch.max(full_metric_score) - torch.min(full_metric_score))
-    
+
     if DENSIFY:
-        importance_score = torch.div(full_metric_counts, len(camlist), rounding_mode='floor')
+        if use_best_view is False:
+            importance_score = torch.div(full_metric_counts, len(camlist), rounding_mode='floor')
     else:
         importance_score = None
     return importance_score, pruning_score

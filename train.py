@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, \
-        stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise_factor, score_plot_path):
+        stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise_factor, score_plot_path, use_best_view, use_score_as_percent):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -106,14 +106,16 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             match fastgs_importance_score:
                 case 'prune':
-                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=False)    
+                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=False, use_best_view)    
                 case 'dense':
-                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=True) 
+                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=True, use_best_view) 
+                    print(scores)
+                    exit()
                 # use DropGaussian random selection
                 case 'neither':
                     scores = None
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, drop_rate=drop_rate, scores=scores, noise_factor=noise_factor)
+        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, drop_rate, scores=scores, noise_factor=noise_factor, use_score_as_percent=use_score_as_percent)
 
         # store and plot scores
         if score_plot_path is not None and scores is not None:
@@ -278,12 +280,12 @@ if __name__ == "__main__":
 
     #Selective-DropGaussian args
     parser.add_argument("--stop_rand_drop_iter", type=int, default=None)
-    # todo: maybe remove
-    parser.add_argument("--score_iterations", nargs="+", type=int, default=None)
     # todo: change the default here to best
     parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices=["prune", "dense", "neither"]) 
     parser.add_argument('--noise_factor', type=float, default=0.0)
     parser.add_argument('--score_plot_path', type=str, default=None)
+    parser.add_argument('--use_best_view', action='store_true', default=False)
+    parser.add_argument('--use_score_as_percent', action='store true', default=False)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -296,7 +298,7 @@ if __name__ == "__main__":
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
-        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise_factor, args.score_plot_path)
+        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise_factor, args.score_plot_path, args.use_best_view, args.use_score_as_percent)
 
     # All done
     print("\nTraining complete.")

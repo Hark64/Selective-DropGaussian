@@ -18,33 +18,39 @@ def drop_gaussians(opacity, drop_rate):
     return opacity
 
 # Drop Gaussians w/ Importance Scores
-def selective_drop_gaussians(opacity, drop_rate=0.0, scores = None, noise_factor=0.0):
+def selective_drop_gaussians(opacity, drop_rate=0.0, scores = None, noise_factor=0.0, use_score_as_percent = False):
 
     # use DropGaussian if no scores provided
     if scores is None:
         opacity = drop_gaussians(opacity, drop_rate)
     else:
         total_gaussians = opacity.shape[0]
-        num_to_drop = int(drop_rate * total_gaussians)
-        compensation_factor = 1 / (1-drop_rate)
-        compensation = torch.ones(opacity.shape[0], dtype=torch.float32, device="cuda")
-        
-        if noise_factor != 0.0:
-            scores = scores + torch.rand_like(scores) * noise_factor
-                
-        # todo: get lowest num_to_drop Gs and 0 them out
-        values, indices = torch.topk(scores, num_to_drop, largest=False)
 
-        compensation[indices] = 0
-        compensation = compensation / (1-drop_rate)
-        opacity = opacity * compensation[:, None]
+        # todo: how to treat as percent
+        if use_score_as_percent:
+            # todo: check if prune and dense scores are both [0,1]
+            scores = drop_rate*(1-scores)
+            # todo: get indices to drop
+            indices = torch.where(torch.rand_like(scores) < scores)
 
-        # runs on cpu? super slow regardless
-        # for i in total_gaussians:
-        #     if i in indices:
-        #         opacity[i, 1] != 0
-        #     else:
-        #         opacity[i, 1] *= compensation_factor 
+            num_dropped = len(indices)
+            compensation = torch.ones(opacity.shape[0], dtype=torch.float32, device="cuda")
+
+            compensation[indices] = 0
+            compensation = compensation / (1 - (num_dropped/total_gaussians))
+            opacity = opacity * compensation[:, None]
+        else:
+            num_to_drop = int(drop_rate * total_gaussians)
+            compensation = torch.ones(opacity.shape[0], dtype=torch.float32, device="cuda")
+            
+            if noise_factor != 0.0:
+                scores = scores + torch.rand_like(scores) * noise_factor
+                    
+            values, indices = torch.topk(scores, num_to_drop, largest=False)
+
+            compensation[indices] = 0
+            compensation = compensation / (1-drop_rate)
+            opacity = opacity * compensation[:, None]
 
     return opacity
 
