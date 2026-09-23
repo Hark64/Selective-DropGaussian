@@ -142,6 +142,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration == opt.iterations:
                 progress_bar.close()
 
+            # FastGS: record time
+            iter_time = iter_start.elapsed_time(iter_end)
+
             # Log and save
             training_report(dataset, tb_writer, iteration, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
             if (iteration in saving_iterations):
@@ -277,11 +280,9 @@ if __name__ == "__main__":
     parser.add_argument("--stop_rand_drop_iter", type=int, default=None)
     # todo: maybe remove
     parser.add_argument("--score_iterations", nargs="+", type=int, default=None)
-    # todo: change default to best
+    # todo: change the default here to best
     parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices=["prune", "dense", "neither"]) 
-    # todo: what's nargs and action='store_true'
     parser.add_argument('--noise_factor', type=float, default=0.0)
-    # todo: what is store_true
     parser.add_argument('--score_plot_path', type=str, default=None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
