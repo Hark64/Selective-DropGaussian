@@ -89,19 +89,17 @@ def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thres
         if DENSIFY:
             if full_metric_counts is None:
                 full_metric_counts = accum_loss_counts.clone()
+            elif use_best_view:
+                full_metric_counts = torch.minimum(full_metric_counts, accum_loss_counts)
             else:
-                if use_best_view:
-                    full_metric_counts = torch.minimum(full_metric_counts, accum_loss_counts)
-                else:
-                    full_metric_counts += accum_loss_counts
+                full_metric_counts += accum_loss_counts
 
         if full_metric_score is None:
             full_metric_score = photometric_loss * accum_loss_counts.clone()
+        elif use_best_view:
+            full_metric_score = torch.minimum(full_metric_score, photometric_loss * accum_loss_counts)
         else:
-            if use_best_view:
-                full_metric_score = torch.minimum(full_metric_score, photometric_loss * accum_loss_counts)
-            else:
-                full_metric_score += photometric_loss * accum_loss_counts
+            full_metric_score += photometric_loss * accum_loss_counts
 
     # min-max normalization
     pruning_score = (full_metric_score - torch.min(full_metric_score)) / (torch.max(full_metric_score) - torch.min(full_metric_score))
@@ -109,6 +107,11 @@ def compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult, loss_thres
     if DENSIFY:
         if use_best_view is False:
             importance_score = torch.div(full_metric_counts, len(camlist), rounding_mode='floor')
+        else:
+            importance_score = torch.div(full_metric_counts, 1, rounding_mode='floor')
+
+        # importance_score = (importance_score - torch.min(importance_score)) / (torch.max(importance_score) - torch.min(importance_score))
     else:
         importance_score = None
+
     return importance_score, pruning_score

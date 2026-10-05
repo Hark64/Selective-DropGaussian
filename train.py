@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, \
-        stop_rand_drop_iter, score_iterations, fastgs_importance_score, noise_factor, score_plot_path, use_best_view, use_score_as_percent):
+        stop_rand_drop_iter, fastgs_importance_score, noise_factor, score_plot_path, use_best_view, use_score_as_percent, start_rand_drop_iter):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -100,24 +100,26 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # use DropGaussian's random selection for first stop_rand_drop_iter iterations if provided
         if (stop_rand_drop_iter is not None) and (iteration <= stop_rand_drop_iter):
             scores = None
+        elif (start_rand_drop_iter is not None) and (iteration >= start_rand_drop_iter):
+            scores = None
         else:
             my_viewpoint_stack = scene.getTrainCameras().copy()
             camlist = sampling_cameras(my_viewpoint_stack)
 
             match fastgs_importance_score:
                 case 'prune':
-                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=False, use_best_view)    
+                    _, scores = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=False, use_best_view=use_best_view)    
                 case 'dense':
-                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=True, use_best_view) 
-                    print(scores)
-                    exit()
+                    scores, _ = compute_gaussian_score_fastgs(camlist, gaussians, pipe, bg, mult=0.5, loss_thresh=0.1, DENSIFY=True, use_best_view=use_best_view) 
                 # use DropGaussian random selection
                 case 'neither':
                     scores = None
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, drop_rate, scores=scores, noise_factor=noise_factor, use_score_as_percent=use_score_as_percent)
+        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, is_train=True, drop_rate=drop_rate, scores=scores, noise_factor=noise_factor, use_score_as_percent=use_score_as_percent)
 
         # store and plot scores
+        if scores is None:
+            median_scores.append(0)
         if score_plot_path is not None and scores is not None:
             median = torch.median(scores)
             median_scores.append(median.item())
@@ -185,12 +187,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     # plot median score per iteration
     if score_plot_path is not None:
-        median_scores = []
         interval_size = int(opt.iterations / 10)
-        plot_intervals = [x * 1000 for x in range()]
+        plot_intervals = [x for x in range(opt.iterations)]
         plt.plot(plot_intervals, median_scores)
         plt.savefig(score_plot_path)
-        plt.close
+        plt.close()
 
     #FastGS: scene.save(iteration)
     print(f"Gaussian number: {gaussians._xyz.shape[0]}")
@@ -284,8 +285,9 @@ if __name__ == "__main__":
     parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices=["prune", "dense", "neither"]) 
     parser.add_argument('--noise_factor', type=float, default=0.0)
     parser.add_argument('--score_plot_path', type=str, default=None)
-    parser.add_argument('--use_best_view', action='store_true', default=False)
-    parser.add_argument('--use_score_as_percent', action='store true', default=False)
+    parser.add_argument('--use_best_view', action="store_true", default=False)
+    parser.add_argument('--use_score_as_percent', action="store_true", default=False)
+    parser.add_argument("--start_rand_drop_iter", type=int, default=None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -298,7 +300,7 @@ if __name__ == "__main__":
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
-        args.stop_rand_drop_iter, args.score_iterations, args.fastgs_importance_score, args.noise_factor, args.score_plot_path, args.use_best_view, args.use_score_as_percent)
+        args.stop_rand_drop_iter, args.fastgs_importance_score, args.noise_factor, args.score_plot_path, args.use_best_view, args.use_score_as_percent, args.start_rand_drop_iter)
 
     # All done
     print("\nTraining complete.")
