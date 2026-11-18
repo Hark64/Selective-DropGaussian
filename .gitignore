@@ -2,4 +2,3 @@ cfg_args
 __pycache__/
 *.egg-info
 build/
-*.txt

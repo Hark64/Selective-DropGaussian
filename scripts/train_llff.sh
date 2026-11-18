@@ -1,3 +1,9 @@
+# Please change the following to your desired paths...
+# 'dataset_path' of the dataset to train on
+# '--score_plot_path' to plot the median score each iteration
+# 'render.py -m output path' for renders
+# 'metric.py --path' for metrics
+
 for n_views in 3 6 9
 do
   exp_name="llff$n_views"
