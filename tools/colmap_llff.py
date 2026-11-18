@@ -188,9 +188,9 @@ def pipeline(scene, base_path, n_views):
     os.system('colmap model_converter  --input_path triangulated --output_path triangulated  --output_type TXT')
     os.system('colmap image_undistorter --image_path images --input_path triangulated --output_path dense')
     os.system('colmap patch_match_stereo --workspace_path dense')
-    os.system('colmap stereo_fusion --workspace_path dense --output_path dense/fused.ply')
+    os.system('colmap stereo_fusion --workspace_path dense --output_path dense/fused1.ply')
 
 
 for scene in ['fern', 'flower', 'fortress',  'horns',  'leaves',  'orchids',  'room',  'trex']:
-    pipeline(scene, base_path = '/files/hmann02/LLFF/llff/nerf_llff_data/', n_views = 9)  # please use absolute path!
+    pipeline(scene, base_path = '/path/to/llff', n_views = 9) # please use absolute path
 

@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, \
-        stop_rand_drop_iter, fastgs_importance_score, noise_factor, score_plot_path, use_best_view, use_score_as_percent, start_rand_drop_iter):
+        initial_rand_drop_iterations, fastgs_importance_score, noise_factor, score_plot_path, use_best_view, use_score_as_percent, final_rand_drop_iterations):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -57,7 +57,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     test_imgs_dir = os.path.join(args.model_path, "test_imgs/")
     os.makedirs(test_imgs_dir, exist_ok = True)
 
-    #FastGS: record time
+    # FastGS: record time
     optim_start = torch.cuda.Event(enable_timing=True)
     optim_end = torch.cuda.Event(enable_timing=True)
     total_time = 0.0
@@ -97,10 +97,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         scores = None
         drop_rate = calc_drop_rate(iteration, opt.iterations, 0.2)
 
-        # use DropGaussian's random selection for first stop_rand_drop_iter iterations if provided
-        if (stop_rand_drop_iter is not None) and (iteration <= stop_rand_drop_iter):
+        # use DropGaussian's random selection for first initial_rand_drop_iterations and for last final_rand_drop_iterations if provided
+        if (initial_rand_drop_iterations is not None) and (iteration <= initial_rand_drop_iterations):
             scores = None
-        elif (start_rand_drop_iter is not None) and (iteration >= start_rand_drop_iter):
+        elif (final_rand_drop_iterations is not None) and (iteration >= final_rand_drop_iterations):
             scores = None
         else:
             my_viewpoint_stack = scene.getTrainCameras().copy()
@@ -193,7 +193,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         plt.savefig(score_plot_path)
         plt.close()
 
-    #FastGS: scene.save(iteration)
+    # FastGS: scene.save(iteration)
     print(f"Gaussian number: {gaussians._xyz.shape[0]}")
     print(f"Training time: {total_time}")
 
@@ -280,14 +280,13 @@ if __name__ == "__main__":
     parser.add_argument("--start_checkpoint", type=str, default = None)
 
     #Selective-DropGaussian args
-    parser.add_argument("--stop_rand_drop_iter", type=int, default=None)
-    # todo: change the default here to best
+    parser.add_argument("--initial_rand_drop_iterations", type=int, default=None)
     parser.add_argument("--fastgs_importance_score", type=str, default="neither", choices=["prune", "dense", "neither"]) 
     parser.add_argument('--noise_factor', type=float, default=0.0)
     parser.add_argument('--score_plot_path', type=str, default=None)
     parser.add_argument('--use_best_view', action="store_true", default=False)
     parser.add_argument('--use_score_as_percent', action="store_true", default=False)
-    parser.add_argument("--start_rand_drop_iter", type=int, default=None)
+    parser.add_argument("--final_rand_drop_iterations", type=int, default=None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -300,7 +299,7 @@ if __name__ == "__main__":
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, \
-        args.stop_rand_drop_iter, args.fastgs_importance_score, args.noise_factor, args.score_plot_path, args.use_best_view, args.use_score_as_percent, args.start_rand_drop_iter)
+        args.initial_rand_drop_iterations, args.fastgs_importance_score, args.noise_factor, args.score_plot_path, args.use_best_view, args.use_score_as_percent, args.final_rand_drop_iterations)
 
     # All done
     print("\nTraining complete.")
