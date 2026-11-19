@@ -26,11 +26,8 @@ def selective_drop_gaussians(opacity, drop_rate=0.0, scores = None, noise_factor
     else:
         total_gaussians = opacity.shape[0]
 
-        # todo: how to treat as percent
         if use_score_as_percent:
-            # todo: check if prune and dense scores are both [0,1]
             scores = drop_rate*(1-scores)
-            # todo: get indices to drop
             indices = torch.where(torch.rand_like(scores) < scores)
 
             num_dropped = len(indices)

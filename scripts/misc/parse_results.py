@@ -16,7 +16,6 @@ for file in os.listdir(directory):
                 and not line.startswith("Training progress") and not line.startswith("Training complete"):
             # set name and values of previous block
             if name is not None:
-                # todo
                 for k, v in vals.items():
                     data[name][k].append(v)
             # set new name and values
