@@ -17,8 +17,6 @@ conda activate sdropgs
 
 ### Data Preparation
 
-In the data preparation stage, we first reconstruct sparse-view inputs using **Structure-from-Motion (SfM)** with the provided camera poses from the datasets. Then, we perform dense stereo matching using COLMAP’s `patch_match_stereo` function, followed by `stereo_fusion` to generate the dense stereo point cloud.
-
 We follow DropGaussian's approach for data preparation. We use **Structure-from-Motion (SfM)**, perform dense stero matching, and steroe fusion to make a dense point cloud for sparse-view inputs.
 
 <details>
